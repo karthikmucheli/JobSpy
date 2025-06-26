@@ -45,10 +45,8 @@ log = create_logger("LinkedIn")
 
 class LinkedIn(Scraper):
     base_url = "https://www.linkedin.com"
-    delay = 3
-    band_delay = 4
-    jobs_per_page = 25
-
+    delay = 1
+    band_delay = 1
     def __init__(
         self, proxies: list[str] | str | None = None, ca_cert: str | None = None
     ):
@@ -78,18 +76,19 @@ class LinkedIn(Scraper):
         self.scraper_input = scraper_input
         job_list: list[JobPost] = []
         seen_ids = set()
-        start = scraper_input.offset // 10 * 10 if scraper_input.offset else 0
+        start = 0
         request_count = 0
         seconds_old = (
             scraper_input.hours_old * 3600 if scraper_input.hours_old else None
         )
         continue_search = (
-            lambda: len(job_list) < scraper_input.results_wanted and start < 1000
+            lambda: len(job_list) < scraper_input.results_wanted
         )
+        response_zero_times = 0
         while continue_search():
             request_count += 1
             log.info(
-                f"search page: {request_count} / {math.ceil(scraper_input.results_wanted / 10)}"
+                f"search page: {request_count}"
             )
             params = {
                 "keywords": scraper_input.search_term,
@@ -101,8 +100,9 @@ class LinkedIn(Scraper):
                     if scraper_input.job_type
                     else None
                 ),
-                "pageNum": 0,
+                # "pageNum": 0,
                 "start": start,
+                "count": 10, # does not matter, the max that is returned is 10
                 "f_AL": "true" if scraper_input.easy_apply else None,
                 "f_C": (
                     ",".join(map(str, scraper_input.linkedin_company_ids))
@@ -120,6 +120,7 @@ class LinkedIn(Scraper):
                     params=params,
                     timeout=10,
                 )
+                print(response.url)
                 if response.status_code not in range(200, 400):
                     if response.status_code == 429:
                         err = (
@@ -140,15 +141,20 @@ class LinkedIn(Scraper):
             soup = BeautifulSoup(response.text, "html.parser")
             job_cards = soup.find_all("div", class_="base-search-card")
             if len(job_cards) == 0:
-                return JobResponse(jobs=job_list)
-
+                print("jobs returned are 0")
+                response_zero_times += 1
+                if response_zero_times > 3:
+                    return JobResponse(jobs=job_list)
+            else:
+                response_zero_times = 0
+            print(len(job_cards))
             for job_card in job_cards:
                 href_tag = job_card.find("a", class_="base-card__full-link")
                 if href_tag and "href" in href_tag.attrs:
                     href = href_tag.attrs["href"].split("?")[0]
                     job_id = href.split("-")[-1]
-
                     if job_id in seen_ids:
+                        print("found same job again ", job_id, href)
                         continue
                     seen_ids.add(job_id)
 
@@ -164,7 +170,7 @@ class LinkedIn(Scraper):
 
             if continue_search():
                 time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
-                start += len(job_list)
+                start += 10
 
         job_list = job_list[: scraper_input.results_wanted]
         return JobResponse(jobs=job_list)
