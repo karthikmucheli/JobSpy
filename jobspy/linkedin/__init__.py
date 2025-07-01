@@ -76,6 +76,7 @@ class LinkedIn(Scraper):
         self.scraper_input = scraper_input
         job_list: list[JobPost] = []
         seen_ids = set()
+        seen_ids.update(scraper_input.ignore_for_ids)
         start = 0
         request_count = 0
         seconds_old = (
@@ -156,7 +157,6 @@ class LinkedIn(Scraper):
                         print("found same job again ", job_id, href)
                         continue
                     seen_ids.add(job_id)
-
                     try:
                         fetch_desc = scraper_input.linkedin_fetch_description
                         job_post = self._process_job(job_card, job_id, fetch_desc)
@@ -192,7 +192,6 @@ class LinkedIn(Scraper):
 
         title_tag = job_card.find("span", class_="sr-only")
         title = title_tag.get_text(strip=True) if title_tag else "N/A"
-
         company_tag = job_card.find("h4", class_="base-search-card__subtitle")
         company_a_tag = company_tag.find("a") if company_tag else None
         company_url = (
@@ -222,9 +221,8 @@ class LinkedIn(Scraper):
             job_details = self._get_job_details(job_id)
             description = job_details.get("description")
         is_remote = is_job_remote(title, description, location)
-
         return JobPost(
-            id=f"li-{job_id}",
+            id=f"{job_id}",
             title=title,
             company_name=company,
             company_url=company_url,

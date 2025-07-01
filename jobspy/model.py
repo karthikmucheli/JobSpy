@@ -278,6 +278,7 @@ class JobPost(BaseModel):
     company_reviews_count: int | None = None  #from ambitionBoxData.ReviewsCount
     vacancy_count: int | None = None  #from vacancy
     work_from_home_type: str | None = None  #from clusters.wfhType (e.g., "Hybrid", "Remote")
+    ignore_for_ids: list[str] | None = None
 
 class JobResponse(BaseModel):
     jobs: list[JobPost] = []
@@ -313,7 +314,7 @@ class ScraperInput(BaseModel):
     linkedin_fetch_description: bool = False
     linkedin_company_ids: list[int] | None = None
     description_format: DescriptionFormat | None = DescriptionFormat.MARKDOWN
-
+    ignore_for_ids: list[str] | None = None
     results_wanted: int = 15
     hours_old: int | None = None
 
